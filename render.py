@@ -60,15 +60,13 @@ if __name__ == "__main__":
         print("export training images ...")
         os.makedirs(train_dir, exist_ok=True)
         gaussExtractor.reconstruction(scene.getTrainCameras())
-        gaussExtractor.export_image(train_dir)
-        
+        gaussExtractor.export_image(train_dir)      
     
     if (not args.skip_test) and (len(scene.getTestCameras()) > 0):
         print("export rendered testing images ...")
         os.makedirs(test_dir, exist_ok=True)
         gaussExtractor.reconstruction(scene.getTestCameras())
         gaussExtractor.export_image(test_dir)
-    
     
     if args.render_path:
         print("render videos ...")

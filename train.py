@@ -52,9 +52,8 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     progress_bar = tqdm(range(first_iter, opt.iterations), desc="Training progress")
     first_iter += 1
     for iteration in range(first_iter, opt.iterations + 1):        
-
+        
         iter_start.record()
-
         gaussians.update_learning_rate(iteration)
 
         # Every 1000 its we increase the levels of SH up to a maximum degree
@@ -86,9 +85,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
         # loss
         total_loss = loss + dist_loss + normal_loss
-        
         total_loss.backward()
-
         iter_end.record()
 
         with torch.no_grad():
@@ -263,9 +260,9 @@ if __name__ == "__main__":
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--checkpoint_iterations", nargs="+", type=int, default=[])
     parser.add_argument("--start_checkpoint", type=str, default = None)
+
     args = parser.parse_args(sys.argv[1:])
     args.save_iterations.append(args.iterations)
-    
     print("Optimizing " + args.model_path)
 
     # Initialize system state (RNG)

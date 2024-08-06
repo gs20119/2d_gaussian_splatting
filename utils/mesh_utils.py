@@ -18,6 +18,7 @@ from utils.render_utils import save_img_f32, save_img_u8
 from functools import partial
 import open3d as o3d
 import trimesh
+from joblib import Parallel, delayed
 
 def post_process_mesh(mesh, cluster_to_keep=1000):
     """
@@ -159,23 +160,35 @@ class GaussianExtractor(object):
             color_type=o3d.pipelines.integration.TSDFVolumeColorType.RGB8
         )
 
-        for i, cam_o3d in tqdm(enumerate(to_cam_open3d(self.viewpoint_stack)), desc="TSDF integration progress"):
-            rgb = self.rgbmaps[i]
-            depth = self.depthmaps[i]
-            
-            # if we have mask provided, use it
-            if mask_backgrond and (self.viewpoint_stack[i].gt_alpha_mask is not None):
-                depth[(self.viewpoint_stack[i].gt_alpha_mask < 0.5)] = 0
-
-            # make open3d rgbd
-            rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(
-                o3d.geometry.Image(np.asarray(rgb.permute(1,2,0).cpu().numpy() * 255, order="C", dtype=np.uint8)),
-                o3d.geometry.Image(np.asarray(depth.permute(1,2,0).cpu().numpy(), order="C")),
+        Parallel(n_jobs = 30, prefer="threads")(
+            delayed(volume.integrate)(
+                o3d.geometry.RGBDImage.create_from_color_and_depth(
+                o3d.geometry.Image(np.asarray(self.rgbmaps[i].permute(1,2,0).cpu().numpy() * 255, order="C", dtype=np.uint8)),
+                o3d.geometry.Image(np.asarray(self.depthmaps[i].permute(1,2,0).cpu().numpy(), order="C")),
                 depth_trunc = depth_trunc, convert_rgb_to_intensity=False,
-                depth_scale = 1.0
-            )
+                depth_scale = 1.0), 
+                intrinsic=cam_o3d.intrinsic, 
+                extrinsic=cam_o3d.extrinsic
+            ) for i, cam_o3d in tqdm(enumerate(to_cam_open3d(self.viewpoint_stack)), desc="TSDF integration progress")
+        )
 
-            volume.integrate(rgbd, intrinsic=cam_o3d.intrinsic, extrinsic=cam_o3d.extrinsic)
+        # for i, cam_o3d in tqdm(enumerate(to_cam_open3d(self.viewpoint_stack)), desc="TSDF integration progress"):
+        #     rgb = self.rgbmaps[i]
+        #     depth = self.depthmaps[i]
+            
+        #     # if we have mask provided, use it
+        #     if mask_backgrond and (self.viewpoint_stack[i].gt_alpha_mask is not None):
+        #         depth[(self.viewpoint_stack[i].gt_alpha_mask < 0.5)] = 0
+
+        #     # make open3d rgbd
+        #     rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(
+        #         o3d.geometry.Image(np.asarray(rgb.permute(1,2,0).cpu().numpy() * 255, order="C", dtype=np.uint8)),
+        #         o3d.geometry.Image(np.asarray(depth.permute(1,2,0).cpu().numpy(), order="C")),
+        #         depth_trunc = depth_trunc, convert_rgb_to_intensity=False,
+        #         depth_scale = 1.0
+        #     )
+
+        #     volume.integrate(rgbd, intrinsic=cam_o3d.intrinsic, extrinsic=cam_o3d.extrinsic)
 
         mesh = volume.extract_triangle_mesh()
         return mesh
